@@ -48,5 +48,5 @@ logging:
 # JWT CONFIGURATION
 # ===============================
 jwt:
-  secret: mysecretkey12345678901234567890
+  secret: mySuperSecureSecretKeyForJwtAuthentication12345
   expiration: 3600000
