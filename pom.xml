@@ -15,7 +15,7 @@
     </parent>
 
     <groupId>com.paymentsystem</groupId>
-    <artifactId>user-registration/artifactId>
+    <artifactId>user-registration/<artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>user-registration/name>
 
