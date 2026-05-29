@@ -10,12 +10,18 @@ import org.slf4j.LoggerFactory;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import payment.system.app.dto.CreateUserRequest;
 import payment.system.app.dto.UserResponse;
 import payment.system.app.entity.Role;
 import payment.system.app.entity.User;
+import payment.system.app.exception.DuplicateUserException;
+import payment.system.app.exception.InvalidRoleException;
+import payment.system.app.exception.UserNotFoundException;
+import payment.system.app.exception.WalletCreationException;
+import payment.system.app.facade.WalletFacadeService;
 import payment.system.app.repository.RoleRepository;
 import payment.system.app.repository.UserRepository;
 
@@ -31,52 +37,27 @@ public class UserService {
     private final RoleRepository roleRepository;
 
     private final PasswordEncoder passwordEncoder;
+    
+    private final WalletFacadeService walletFacadeService;
 
-    /**
-     * Create User
-     */
+    @Transactional
     public UserResponse createUser(
             CreateUserRequest request) {
 
-        logger.info("Create user service started");
-
-        if (request == null) {
-
-            logger.error(
-                    "CreateUserRequest is null");
-
-            throw new IllegalArgumentException(
-                    "User request cannot be null");
-        }
-
-        if (request.getEmail() == null
-                || request.getEmail().isBlank()) {
-
-            logger.error(
-                    "User email is null or empty");
-
-            throw new IllegalArgumentException(
-                    "User email cannot be null or empty");
-        }
-
         logger.info(
-                "Checking duplicate email : {}",
+                "User creation started for email={}",
                 request.getEmail());
 
         if (userRepository.existsByEmail(
                 request.getEmail())) {
 
-            logger.error(
-                    "Email already registered : {}",
+            logger.warn(
+                    "Duplicate email detected: {}",
                     request.getEmail());
 
-            throw new IllegalArgumentException(
-                    "Email already registered");
+            throw new DuplicateUserException(
+                    request.getEmail());
         }
-
-        logger.info(
-                "Validating roles for user : {}",
-                request.getEmail());
 
         Set<Role> roles =
                 validateRoles(request.getRoles());
@@ -91,30 +72,41 @@ public class UserService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        logger.info(
-                "Saving user with email : {}",
-                request.getEmail());
-
         User savedUser =
                 userRepository.save(user);
 
-        if (savedUser == null) {
+        logger.info(
+                "User persisted successfully with id={}",
+                savedUser.getId());
+
+        try {
+
+            walletFacadeService
+                    .createWallet(savedUser.getId());
+
+            logger.info(
+                    "Wallet created successfully for userId={}",
+                    savedUser.getId());
+
+        } catch (Exception ex) {
 
             logger.error(
-                    "Failed to save user with email : {}",
-                    request.getEmail());
+                    "Wallet creation failed for userId={}",
+                    savedUser.getId(),
+                    ex);
 
-            throw new RuntimeException(
-                    "Failed to create user");
+            throw new WalletCreationException(
+                    "Failed to create wallet for userId="
+                            + savedUser.getId(),
+                    ex);
         }
 
         logger.info(
-                "User created successfully with id : {}",
+                "User creation completed successfully for userId={}",
                 savedUser.getId());
 
         return mapToResponse(savedUser);
     }
-
     /**
      * Get All Users
      */
@@ -134,41 +126,22 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get User By Id
-     */
     public UserResponse getUserById(
             Long id) {
 
-        logger.info(
-                "Fetching user by id : {}",
+        logger.debug(
+                "Fetching user for userId={}",
                 id);
-
-        if (id == null || id <= 0) {
-
-            logger.error(
-                    "Invalid user id : {}",
-                    id);
-
-            throw new IllegalArgumentException(
-                    "Valid user id is required");
-        }
 
         User user = userRepository.findById(id)
                 .orElseThrow(() -> {
 
-                    logger.error(
-                            "User not found with id : {}",
+                    logger.warn(
+                            "User not found for userId={}",
                             id);
 
-                    return new IllegalArgumentException(
-                            "User not found with id : "
-                                    + id);
+                    return new UserNotFoundException(id);
                 });
-
-        logger.info(
-                "User fetched successfully with id : {}",
-                id);
 
         return mapToResponse(user);
     }
@@ -301,53 +274,38 @@ public class UserService {
                 id);
     }
 
-    /**
-     * Validate Roles
-     */
     private Set<Role> validateRoles(
             Set<String> roleNames) {
-
-        logger.info("Validating roles");
 
         if (roleNames == null
                 || roleNames.isEmpty()) {
 
-            logger.error(
-                    "Role names are null or empty");
+            logger.warn(
+                    "Role validation failed: empty roles");
 
-            throw new IllegalArgumentException(
+            throw new InvalidRoleException(
                     "At least one role is required");
         }
 
         Set<Role> roles =
                 roleRepository.findByNameIn(roleNames);
 
-        if (roles.isEmpty()) {
-
-            logger.error(
-                    "Invalid roles provided : {}",
-                    roleNames);
-
-            throw new IllegalArgumentException(
-                    "Invalid roles provided");
-        }
-
         if (roles.size() != roleNames.size()) {
 
-            logger.error(
-                    "One or more roles are not present in DB : {}",
+            logger.warn(
+                    "Invalid roles detected: {}",
                     roleNames);
 
-            throw new IllegalArgumentException(
-                    "One or more roles are not present in DB");
+            throw new InvalidRoleException(
+                    "One or more roles are invalid");
         }
 
-        logger.info(
-                "Roles validated successfully");
+        logger.debug(
+                "Roles validated successfully: {}",
+                roleNames);
 
         return roles;
     }
-
     /**
      * Convert Entity -> DTO
      */

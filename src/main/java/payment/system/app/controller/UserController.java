@@ -32,36 +32,16 @@ public class UserController {
     public ResponseEntity<UserResponse> createUser(
             @Valid @RequestBody CreateUserRequest request) {
 
-        logger.info("Create user request received");
-
-        if (request == null) {
-
-            logger.error("CreateUserRequest body is null");
-
-            throw new IllegalArgumentException(
-                    "User request cannot be null");
-        }
-
         logger.info(
-                "Creating user with email : {}",
+                "Create user request received for email={}",
                 request.getEmail());
 
         UserResponse response =
                 userService.createUser(request);
 
-        if (response == null) {
-
-            logger.error(
-                    "User creation failed for email : {}",
-                    request.getEmail());
-
-            throw new RuntimeException(
-                    "Failed to create user");
-        }
-
         logger.info(
-                "User created successfully with email : {}",
-                request.getEmail());
+                "User created successfully with id={}",
+                response.getId());
 
         return ResponseEntity.ok(response);
     }
@@ -73,13 +53,13 @@ public class UserController {
     @GetMapping
     public ResponseEntity<List<UserResponse>> getAllUsers() {
 
-        logger.info("Get all users request received");
+        logger.info("Fetch all users request received");
 
         List<UserResponse> users =
                 userService.getAllUsers();
 
         logger.info(
-                "Successfully fetched {} users",
+                "Fetched {} users successfully",
                 users.size());
 
         return ResponseEntity.ok(users);
@@ -88,40 +68,20 @@ public class UserController {
     /**
      * Get User By Id
      */
-    @PreAuthorize("hasAuthority('DELETE_USER')")
+    @PreAuthorize("hasAuthority('VIEW_USER')")
     @GetMapping("/{id}")
     public ResponseEntity<UserResponse> getUserById(
             @PathVariable Long id) {
 
         logger.info(
-                "Get user by id request received for id : {}",
+                "Fetch user request received for userId={}",
                 id);
-
-        if (id == null || id <= 0) {
-
-            logger.error(
-                    "Invalid user id received : {}",
-                    id);
-
-            throw new IllegalArgumentException(
-                    "Valid user id is required");
-        }
 
         UserResponse response =
                 userService.getUserById(id);
 
-        if (response == null) {
-
-            logger.error(
-                    "User not found for id : {}",
-                    id);
-
-            throw new RuntimeException(
-                    "User not found");
-        }
-
         logger.info(
-                "User fetched successfully for id : {}",
+                "User fetched successfully for userId={}",
                 id);
 
         return ResponseEntity.ok(response);
@@ -137,48 +97,14 @@ public class UserController {
             @Valid @RequestBody CreateUserRequest request) {
 
         logger.info(
-                "Update user request received for id : {}",
+                "Update user request received for userId={}",
                 id);
-
-        if (id == null || id <= 0) {
-
-            logger.error(
-                    "Invalid user id received for update : {}",
-                    id);
-
-            throw new IllegalArgumentException(
-                    "Valid user id is required");
-        }
-
-        if (request == null) {
-
-            logger.error(
-                    "Update user request body is null");
-
-            throw new IllegalArgumentException(
-                    "Update user request cannot be null");
-        }
-
-        logger.info(
-                "Updating user with id : {} and email : {}",
-                id,
-                request.getEmail());
 
         UserResponse response =
                 userService.updateUser(id, request);
 
-        if (response == null) {
-
-            logger.error(
-                    "User update failed for id : {}",
-                    id);
-
-            throw new RuntimeException(
-                    "Failed to update user");
-        }
-
         logger.info(
-                "User updated successfully for id : {}",
+                "User updated successfully for userId={}",
                 id);
 
         return ResponseEntity.ok(response);
@@ -193,23 +119,13 @@ public class UserController {
             @PathVariable Long id) {
 
         logger.info(
-                "Delete user request received for id : {}",
+                "Delete user request received for userId={}",
                 id);
-
-        if (id == null || id <= 0) {
-
-            logger.error(
-                    "Invalid user id received for delete : {}",
-                    id);
-
-            throw new IllegalArgumentException(
-                    "Valid user id is required");
-        }
 
         userService.deleteUser(id);
 
         logger.info(
-                "User deleted successfully for id : {}",
+                "User deleted successfully for userId={}",
                 id);
 
         return ResponseEntity.ok(
