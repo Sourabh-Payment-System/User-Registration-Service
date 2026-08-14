@@ -1,296 +1,77 @@
 package payment.system.app.jwt.Utility;
 
-import java.security.Key;
-import java.util.Date;
-import java.util.function.Function;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.security.core.GrantedAuthority;
+import payment.system.app.service.CustomUserDetails;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.UnsupportedJwtException;
-import io.jsonwebtoken.security.Keys;
+import javax.crypto.SecretKey;
+import java.util.Date;
 
 @Component
 public class JwtUtil {
 
-    private static final Logger logger =
-            LoggerFactory.getLogger(JwtUtil.class);
+    private final SecretKey signingKey;
+    private final long expirationMillis;
+    private final String issuer;
+    private final String audience;
 
-    @Value("${jwt.secret}")
-    private String secret;
+    public JwtUtil(
+            @Value("${jwt.secret-base64}") String secretBase64,
+            @Value("${jwt.expiration-ms}") long expirationMillis,
+            @Value("${jwt.issuer}") String issuer,
+            @Value("${jwt.audience}") String audience) {
 
-    @Value("${jwt.expiration}")
-    private long expiration;
-
-    /**
-     * Generate signing key
-     */
-    private Key getSigningKey() {
-
-        logger.debug("Generating JWT signing key");
-
-        if (secret == null || secret.isBlank()) {
-
-            logger.error("JWT secret key is null or empty");
-
-            throw new IllegalArgumentException(
-                    "JWT secret key cannot be null or empty");
+        if (secretBase64 == null || secretBase64.isBlank()) {
+            throw new IllegalArgumentException("JWT secret must be configured");
         }
 
-        return Keys.hmacShaKeyFor(secret.getBytes());
+        byte[] keyBytes = Decoders.BASE64.decode(secretBase64);
+        if (keyBytes.length < 32) {
+            throw new IllegalArgumentException("JWT HMAC key must be at least 256 bits");
+        }
+
+        this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+        this.expirationMillis = expirationMillis;
+        this.issuer = issuer;
+        this.audience = audience;
     }
 
-    /* ================= TOKEN GENERATION ================= */
+    public String generateToken(CustomUserDetails principal) {
+        Date now = new Date();
 
-    public String generateToken(String username) {
+        var builder = Jwts.builder()
+                .setSubject(principal.getUsername())
+                .setIssuer(issuer)
+                .setAudience(audience)
+                .claim("userId", principal.getUserId())
+                .claim("authorities", principal.getAuthorities().stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .toList())
+                .setIssuedAt(now)
+                .setExpiration(new Date(now.getTime() + expirationMillis));
 
-        logger.info(
-                "Generating JWT token for username : {}",
-                username);
-
-        if (username == null || username.isBlank()) {
-
-            logger.error(
-                    "Username is null or empty while generating token");
-
-            throw new IllegalArgumentException(
-                    "Username cannot be null or empty");
-        }
-
-        try {
-
-            String token = Jwts.builder()
-                    .setSubject(username)
-                    .setIssuedAt(new Date())
-                    .setExpiration(
-                            new Date(
-                                    System.currentTimeMillis()
-                                            + expiration))
-                    .signWith(
-                            getSigningKey(),
-                            SignatureAlgorithm.HS256)
-                    .compact();
-
-            logger.info(
-                    "JWT token generated successfully for username : {}",
-                    username);
-
-            return token;
-
-        } catch (Exception ex) {
-
-            logger.error(
-                    "Error while generating JWT token for username : {}",
-                    username,
-                    ex);
-
-            throw new RuntimeException(
-                    "Failed to generate JWT token",
-                    ex);
-        }
+        return builder.signWith(signingKey, SignatureAlgorithm.HS256).compact();
     }
 
-    /* ================= CLAIM EXTRACTION ================= */
+    public Claims parseAndValidate(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(signingKey)
+                .requireIssuer(issuer)
+                .requireAudience(audience)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
 
     public String extractUsername(String token) {
-
-        logger.debug("Extracting username from JWT token");
-
-        return extractClaim(token, Claims::getSubject);
+        return parseAndValidate(token).getSubject();
     }
 
-    public Date extractExpiration(String token) {
-
-        logger.debug("Extracting expiration from JWT token");
-
-        return extractClaim(token, Claims::getExpiration);
-    }
-
-    public <T> T extractClaim(
-            String token,
-            Function<Claims, T> claimsResolver) {
-
-        if (token == null || token.isBlank()) {
-
-            logger.error(
-                    "JWT token is null or empty while extracting claims");
-
-            throw new IllegalArgumentException(
-                    "JWT token cannot be null or empty");
-        }
-
-        try {
-
-            final Claims claims =
-                    extractAllClaims(token);
-
-            logger.debug(
-                    "Claims extracted successfully from JWT token");
-
-            return claimsResolver.apply(claims);
-
-        } catch (Exception ex) {
-
-            logger.error(
-                    "Error while extracting claim from JWT token",
-                    ex);
-
-            throw ex;
-        }
-    }
-
-    private Claims extractAllClaims(String token) {
-
-        logger.debug("Extracting all claims from JWT token");
-
-        try {
-
-            Claims claims = Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody();
-
-            logger.debug(
-                    "All claims extracted successfully");
-
-            return claims;
-
-        } catch (ExpiredJwtException ex) {
-
-            logger.error(
-                    "JWT token has expired : {}",
-                    ex.getMessage());
-
-            throw new IllegalArgumentException(
-                    "JWT token has expired",
-                    ex);
-
-        } catch (MalformedJwtException ex) {
-
-            logger.error(
-                    "Malformed JWT token : {}",
-                    ex.getMessage());
-
-            throw new IllegalArgumentException(
-                    "Malformed JWT token",
-                    ex);
-
-        } catch (UnsupportedJwtException ex) {
-
-            logger.error(
-                    "Unsupported JWT token : {}",
-                    ex.getMessage());
-
-            throw new IllegalArgumentException(
-                    "Unsupported JWT token",
-                    ex);
-
-        } catch (SecurityException ex) {
-
-            logger.error(
-                    "Invalid JWT signature : {}",
-                    ex.getMessage());
-
-            throw new IllegalArgumentException(
-                    "Invalid JWT signature",
-                    ex);
-
-        } catch (Exception ex) {
-
-            logger.error(
-                    "Error while extracting JWT claims",
-                    ex);
-
-            throw new RuntimeException(
-                    "Failed to extract JWT claims",
-                    ex);
-        }
-    }
-
-    /* ================= VALIDATION ================= */
-
-    public boolean isTokenExpired(String token) {
-
-        logger.debug("Checking JWT token expiration");
-
-        boolean isExpired =
-                extractExpiration(token)
-                        .before(new Date());
-
-        if (isExpired) {
-
-            logger.warn("JWT token is expired");
-        }
-
-        return isExpired;
-    }
-
-    public boolean validateToken(
-            String token,
-            String username) {
-
-        logger.info(
-                "Validating JWT token for username : {}",
-                username);
-
-        if (token == null || token.isBlank()) {
-
-            logger.error(
-                    "JWT token is null or empty");
-
-            throw new IllegalArgumentException(
-                    "JWT token cannot be null or empty");
-        }
-
-        if (username == null || username.isBlank()) {
-
-            logger.error(
-                    "Username is null or empty");
-
-            throw new IllegalArgumentException(
-                    "Username cannot be null or empty");
-        }
-
-        try {
-
-            final String extractedUsername =
-                    extractUsername(token);
-
-            boolean isValid =
-                    extractedUsername.equals(username)
-                            && !isTokenExpired(token);
-
-            if (!isValid) {
-
-                logger.warn(
-                        "JWT token validation failed for username : {}",
-                        username);
-            } else {
-
-                logger.info(
-                        "JWT token validated successfully for username : {}",
-                        username);
-            }
-
-            return isValid;
-
-        } catch (Exception ex) {
-
-            logger.error(
-                    "Error while validating JWT token for username : {}",
-                    username,
-                    ex);
-
-            throw ex;
-        }
+    public long getExpirationSeconds() {
+        return expirationMillis / 1000;
     }
 }

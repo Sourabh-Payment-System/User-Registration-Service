@@ -15,202 +15,154 @@ import payment.system.app.entity.User;
 
 public class CustomUserDetails implements UserDetails {
 
-    private static final Logger logger =
-            LoggerFactory.getLogger(CustomUserDetails.class);
+	private static final Logger logger = LoggerFactory.getLogger(CustomUserDetails.class);
 
-    private final User user;
+	private final User user;
 
-    public CustomUserDetails(User user) {
+	public CustomUserDetails(User user) {
 
-        if (user == null) {
+		if (user == null) {
 
-            logger.error("User object is null");
+			logger.error("User object is null");
 
-            throw new IllegalArgumentException(
-                    "User cannot be null");
-        }
+			throw new IllegalArgumentException("User cannot be null");
+		}
 
-        this.user = user;
+		this.user = user;
 
-        logger.info(
-                "CustomUserDetails initialized for user : {}",
-                user.getEmail());
-    }
+		logger.info("CustomUserDetails initialized for user : {}", user.getEmail());
+	}
 
-    @Override
-    public Collection<? extends GrantedAuthority>
-    getAuthorities() {
+	public Long getUserId() {
+		return user.getId();
+	}
 
-        logger.info(
-                "Fetching authorities for user : {}",
-                user.getEmail());
+	@Override
+	public Collection<? extends GrantedAuthority> getAuthorities() {
 
-        Set<SimpleGrantedAuthority> authorities =
-                new HashSet<>();
+		logger.info("Fetching authorities for user : {}", user.getEmail());
 
-        if (user.getRoles() == null
-                || user.getRoles().isEmpty()) {
+		Set<SimpleGrantedAuthority> authorities = new HashSet<>();
 
-            logger.warn(
-                    "No roles assigned to user : {}",
-                    user.getEmail());
+		if (user.getRoles() == null || user.getRoles().isEmpty()) {
 
-            return authorities;
-        }
+			logger.warn("No roles assigned to user : {}", user.getEmail());
 
-        try {
+			return authorities;
+		}
 
-            user.getRoles().forEach(role -> {
+		try {
 
-                if (role == null) {
+			user.getRoles().forEach(role -> {
 
-                    logger.warn(
-                            "Null role found for user : {}",
-                            user.getEmail());
+				if (role == null) {
 
-                    return;
-                }
+					logger.warn("Null role found for user : {}", user.getEmail());
 
-                logger.info(
-                        "Adding role authority : ROLE_{} for user : {}",
-                        role.getName(),
-                        user.getEmail());
+					return;
+				}
 
-                authorities.add(
-                        new SimpleGrantedAuthority(
-                                "ROLE_" + role.getName()));
+				logger.info("Adding role authority : ROLE_{} for user : {}", role.getName(), user.getEmail());
 
-                if (role.getPermissions() == null
-                        || role.getPermissions().isEmpty()) {
+				authorities.add(new SimpleGrantedAuthority(role.getName()));
 
-                    logger.warn(
-                            "No permissions found for role : {}",
-                            role.getName());
+				if (role.getPermissions() == null || role.getPermissions().isEmpty()) {
 
-                    return;
-                }
+					logger.warn("No permissions found for role : {}", role.getName());
 
-                role.getPermissions().forEach(permission -> {
+					return;
+				}
 
-                    if (permission == null) {
+				role.getPermissions().forEach(permission -> {
 
-                        logger.warn(
-                                "Null permission found in role : {}",
-                                role.getName());
+					if (permission == null) {
 
-                        return;
-                    }
+						logger.warn("Null permission found in role : {}", role.getName());
 
-                    logger.info(
-                            "Adding permission : {} for user : {}",
-                            permission.getName(),
-                            user.getEmail());
+						return;
+					}
 
-                    authorities.add(
-                            new SimpleGrantedAuthority(
-                                    permission.getName()));
-                });
-            });
+					logger.info("Adding permission : {} for user : {}", permission.getName(), user.getEmail());
 
-            logger.info(
-                    "Successfully fetched {} authorities for user : {}",
-                    authorities.size(),
-                    user.getEmail());
+					authorities.add(new SimpleGrantedAuthority(permission.getName()));
+				});
+			});
 
-            return authorities;
+			logger.info("Successfully fetched {} authorities for user : {}", authorities.size(), user.getEmail());
 
-        } catch (Exception ex) {
+			return authorities;
 
-            logger.error(
-                    "Error while fetching authorities for user : {}",
-                    user.getEmail(),
-                    ex);
+		} catch (Exception ex) {
 
-            throw new RuntimeException(
-                    "Failed to fetch user authorities",
-                    ex);
-        }
-    }
+			logger.error("Error while fetching authorities for user : {}", user.getEmail(), ex);
 
-    @Override
-    public String getUsername() {
+			throw new RuntimeException("Failed to fetch user authorities", ex);
+		}
+	}
 
-        logger.debug(
-                "Fetching username for user");
+	@Override
+	public String getUsername() {
 
-        String email = user.getEmail();
+		logger.debug("Fetching username for user");
 
-        if (email == null || email.isBlank()) {
+		String email = user.getEmail();
 
-            logger.error(
-                    "User email is null or empty");
+		if (email == null || email.isBlank()) {
 
-            throw new IllegalArgumentException(
-                    "User email cannot be null or empty");
-        }
+			logger.error("User email is null or empty");
 
-        return email;
-    }
+			throw new IllegalArgumentException("User email cannot be null or empty");
+		}
 
-    @Override
-    public String getPassword() {
+		return email;
+	}
 
-        logger.debug(
-                "Fetching password for user : {}",
-                user.getEmail());
+	@Override
+	public String getPassword() {
 
-        String password = user.getPassword();
+		logger.debug("Fetching password for user : {}", user.getEmail());
 
-        if (password == null || password.isBlank()) {
+		String password = user.getPassword();
 
-            logger.error(
-                    "Password is null or empty for user : {}",
-                    user.getEmail());
+		if (password == null || password.isBlank()) {
 
-            throw new IllegalArgumentException(
-                    "Password cannot be null or empty");
-        }
+			logger.error("Password is null or empty for user : {}", user.getEmail());
 
-        return password;
-    }
+			throw new IllegalArgumentException("Password cannot be null or empty");
+		}
 
-    @Override
-    public boolean isAccountNonExpired() {
+		return password;
+	}
 
-        logger.debug(
-                "Checking account expiration status for user : {}",
-                user.getEmail());
+	@Override
+	public boolean isAccountNonExpired() {
 
-        return true;
-    }
+		logger.debug("Checking account expiration status for user : {}", user.getEmail());
 
-    @Override
-    public boolean isAccountNonLocked() {
+		return true;
+	}
 
-        logger.debug(
-                "Checking account lock status for user : {}",
-                user.getEmail());
+	@Override
+	public boolean isAccountNonLocked() {
 
-        return true;
-    }
+		logger.debug("Checking account lock status for user : {}", user.getEmail());
 
-    @Override
-    public boolean isCredentialsNonExpired() {
+		return true;
+	}
 
-        logger.debug(
-                "Checking credentials expiration status for user : {}",
-                user.getEmail());
+	@Override
+	public boolean isCredentialsNonExpired() {
 
-        return true;
-    }
+		logger.debug("Checking credentials expiration status for user : {}", user.getEmail());
 
-    @Override
-    public boolean isEnabled() {
+		return true;
+	}
 
-        logger.debug(
-                "Checking enabled status for user : {}",
-                user.getEmail());
+	@Override
+	public boolean isEnabled() {
 
-        return true;
-    }
+		logger.debug("Checking enabled status for user : {}", user.getEmail());
+
+		return true;
+	}
 }

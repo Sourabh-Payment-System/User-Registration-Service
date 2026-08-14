@@ -158,7 +158,82 @@ public class GlobalExceptionHandler {
                 error,
                 HttpStatus.BAD_REQUEST);
     }
+    
+    /**
+     * Handle duplicate user
+     */
+    @ExceptionHandler(DuplicateUserException.class)
+    public ResponseEntity<ErrorMessageDto>
+    handleDuplicateUserException(
+            DuplicateUserException ex) {
 
+        logger.error(
+                "DuplicateUserException occurred : {}",
+                ex.getMessage(),
+                ex);
+
+        ErrorMessageDto error =
+                new ErrorMessageDto(
+                        LocalDateTime.now(),
+                        HttpStatus.CONFLICT.value(),
+                        "Conflict",
+                        ex.getMessage());
+
+        return new ResponseEntity<>(
+                error,
+                HttpStatus.CONFLICT);
+    }
+    
+    /**
+     * Handle invalid role
+     */
+    @ExceptionHandler(InvalidRoleException.class)
+    public ResponseEntity<ErrorMessageDto>
+    handleInvalidRoleException(
+            InvalidRoleException ex) {
+
+        logger.error(
+                "InvalidRoleException occurred : {}",
+                ex.getMessage(),
+                ex);
+
+        ErrorMessageDto error =
+                new ErrorMessageDto(
+                        LocalDateTime.now(),
+                        HttpStatus.BAD_REQUEST.value(),
+                        "Invalid Role",
+                        ex.getMessage());
+
+        return new ResponseEntity<>(
+                error,
+                HttpStatus.BAD_REQUEST);
+    }
+    
+    /**
+     * Handle application user not found
+     */
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ErrorMessageDto>
+    handleUserNotFoundException(
+            UserNotFoundException ex) {
+
+        logger.error(
+                "UserNotFoundException occurred : {}",
+                ex.getMessage(),
+                ex);
+
+        ErrorMessageDto error =
+                new ErrorMessageDto(
+                        LocalDateTime.now(),
+                        HttpStatus.NOT_FOUND.value(),
+                        "User Not Found",
+                        ex.getMessage());
+
+        return new ResponseEntity<>(
+                error,
+                HttpStatus.NOT_FOUND);
+    }
+    
     /**
      * Handle all uncaught exceptions
      */
