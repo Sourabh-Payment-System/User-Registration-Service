@@ -33,7 +33,7 @@ wallet:
 
 jwt:
   secret-base64: ${JWT_SECRET_BASE64:"lf8pg3dCyON+2Zv7t98MZ42yh2xaXOUYL+YqLjcx+sg="}
-  expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
   issuer: ${JWT_ISSUER:payment-user-service}
   audience: ${JWT_AUDIENCE:payment-platform}
 
